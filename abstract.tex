@@ -1,123 +1,201 @@
-% icai2017.sty uses the next packages:
-% geometry, [utf8]inputenc, [T1]fontenc, [english]babel, graphicx, [intlimits]amsmath, amssymb, amsthm, caption, titlesec, url
-%
-% Defined theorem-like environments:
-% definition, theorem, lemma, remark, example, corollary, proof
-%
-% You can define new theorem-like environment in the following way (see amsthm.sty):
-% \newtheorem{prob}[theorem]{Problem}
+\documentclass[sigconf]{acmart}
 
-\documentclass{article}
-\usepackage{icai2017}
+\usepackage{booktabs} % For formal tables
+\usepackage{listings}
+\usepackage{parcolumns}
 \usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{pgfplots}
+\usepackage{tikz}
 
-\usepackage{array}
-\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\usepgfplotslibrary{units}
+\usetikzlibrary{arrows, positioning}
+\usetikzlibrary{shapes}
 
-\newtheorem{prob}[theorem]{Problem}
+\setlength{\abovecaptionskip}{2pt plus 2pt minus 2pt}
+\setlength{\belowcaptionskip}{2pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{2pt}
+\setlength{\dbltextfloatsep}{2pt}
+\setlength{\intextsep}{2pt}
+
+\lstset{language=C++,
+        basicstyle=\footnotesize\ttfamily,
+        keywordstyle=\color{blue}\ttfamily,
+        stringstyle=\color{red}\ttfamily,
+        commentstyle=\color{green!40!black}\ttfamily,
+        morecomment=[l][\color{magenta}]{\#}
+}
+
+% Define bar chart colors
+%
+\definecolor{bblue}{HTML}{4F81BD}
+\definecolor{rred}{HTML}{C0504D}
+\definecolor{ggreen}{HTML}{9BBB59}
+\definecolor{ppurple}{HTML}{9F4C7C}
+
+\newcommand{\cL}{{\cal L}}
+  
+\settopmatter{printacmref=false} 
+ 
+
+
+% Copyright
+\setcopyright{none}
+%\setcopyright{acmcopyright}
+%\setcopyright{acmlicensed}
+%\setcopyright{rightsretained}
+%\setcopyright{usgov}
+%\setcopyright{usgovmixed}
+%\setcopyright{cagov}
+%\setcopyright{cagovmixed}
+
+
+% DOI
+%\acmDOI{10.475/123_4}
+
+% ISBN
+%\acmISBN{123-4567-24-567/08/06}
+
+%Conference
+%\acmConference[ICSE 2018]{40th International Conference on Software Engineering}{May-June 2018}{Gothenburg, Sweden} 
+%#\acmYear{2018}
+%\copyrightyear{2018}
+
+%\acmPrice{15.00}
+\renewcommand\footnotetextcopyrightpermission[1]{} % removes footnote with conference information in first column
+\pagestyle{plain} % removes running headers 
 
 \title{Cross Translational Unit Analysis in Clang Static Analyzer: Qualitative Evaluation on C/C++ projects}
-\author{D\'aniel Krupp\inst1, G\'abor Horv\'ath\inst2,\ Zolt\'an Gera\inst2, \ P\' eter Sz\' ecsi\inst2}
-\institute{\inst1Ericsson Ltd., \inst2E\"{o}tv\"{o}s Lor\'{a}nd University, Faculty of Informatics\\
-             \inst1\url{daniel.krupp@ericsson.com},                           
-             \inst2\url{xazax@caesar.elte.hu}, 
-             \inst2\url{gerazo@caesar.elte.hu},
-             \inst2\url{szepet95@gmail.com}}
-             
+\author{G\'abor Horv\'ath}
+\email{xazax@caesar.elte.hu}
+
+\author{P\'eter Sz\'ecsi}
+\email{ps95@caesar.elte.hu}
+
+\author{Zolt\'an Gera}
+\email{gerazo@caesar.elte.hu}
+\affiliation{%
+  \institution{E\"otv\"os Lor\'and University, Department of Programming Languages and Compilers}
+  \streetaddress{P\'azm\'any P\'eter st. 1/C.}
+  \city{Budapest} 
+  \country{Hungary} 
+}
+
+\author{D\'aniel Krupp}
+\affiliation{%
+  \institution{Ericsson Ltd.}
+  \streetaddress{Magyar Tud\'osok k\"or\'utja 11.}
+  \city{Budapest}
+  \country{Hungary}
+}
+\email{daniel.krupp@ericsson.com}
+
+
 \begin{document}
 \maketitle
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Abstract}
-Today Clang Static Analyzer \cite{clangsa} can perform (context-sensitive) inter-procedural analysis for 
+Today Clang Static Analyzer can perform inter-procedural analysis for 
 C, C++ and Objective C files by ''inlining'' 
-the called function into the callers' context. This means that that the full 
-calling context
-(assumptions about the values of function parameters, global variables) is passed when 
+the callee into the callers' context. This means that that the full 
+calling context are passed when 
 analyzing the called function and
 then the assumptions about the returned value is passed back to the caller. 
 This works well for function calls within a
 translation unit (TU), but when the symbolic execution reaches a function that 
 is implemented in another TU, the analyzer engine 
 skips the analysis of the called function definition. In particular,
-assumptions about references and pointers passed as function 
-parameters get invalidated, and the return value of the function will be unknown.
+assumptions about memory regions reachable from the parameters 
+(through pointers, references) get invalidated, 
+and the return value of the function will be unknown.
 Losing information this way may lead to false positive
 and false negative findings.
 
-The cross translation unit (CTU) feature allows the analysis of called 
-functions even if the definition of the function is external to the currently 
+The cross translation unit (CTU) feature allows the analysis of callees
+even if the definition of the function is external to the currently 
 analyzed TU. This allows detection of bugs in library functions stemming
 from incorrect usage (e.g. a library assumes that the user will free a memory 
 block allocated by the library), and allows for more precise analysis
 of the caller in general if a TU external function is invoked
 (by not losing assumptions).
 
-We implemented (based on the prototype by A. Sidorin, et al.~\cite{artemctu})
-the Cross Translation Unit analysis feature for Clang SA (5.0) and evaluated 
+Without CTU analysis we cannot find the divison by zero error in the next 
+code snippet. Moreover, we loose information about the value of variable
+\texttt{x}.
+
+\noindent\begin{minipage}{.48\columnwidth}
+\begin{lstlisting}[caption=A.cpp,frame=tlrb]{Name}
+void f(int *x);
+
+void g() {
+  int x = 42;
+  f(&x);
+  // No knowledge about
+  // the value of x here.
+}
+\end{lstlisting}
+\end{minipage}\hfill
+\begin{minipage}{.48\columnwidth}
+\begin{lstlisting}[caption=B.cpp,frame=tlrb]{Name}
+int f(int *x) {
+  // Potential division by
+  // zero.
+  return 5 / (*x - 42);
+}
+\end{lstlisting}
+\end{minipage}
+
+
+We implemented the Cross Translation Unit analysis feature for Clang SA (5.0) 
+(based on the prototype by A. Sidorin, et al.~\cite{artemctu}) and evaluated 
 its performance on various open source projects. 
 
 G\'abor Horv\'ath presented our results at EuroLLVM 2017 \cite{eurollvm17}.
-Since that talk (in March, 2017) we have improved the CTU prototype considerably 
+Since then we have improved the CTU prototype considerably: 
 \begin{itemize}
-\item to handle C++ source code (not only C). There are several improvements on 
-the ASTImporter library.
-\item to be able to perform analysis with scan-build-py and CodeChecker tools
+\item Improved the handling of C++ source code by submitting several patches  
+to the ASTImporter library.
+\item Addressed community review comments and introduced a new libCrossTU library into Clang.
+\item Added CTU analysis feature to scan-build-py and\\ CodeChecker tools.
 \end{itemize}
 
-In the talk in 2017 we were focusing how CTU is implemented and what how the 
-analsys performance compares to the baseline.
+In the previous talk, we were focusing on how CTU is implemented and how the 
+analysis performance compares to the baseline. In this poster, however, we will 
+explore the quality of reports.
 
-In this poster we will show quality of analysis results on popular open source
-projects such as Xerces, Bitcoin, Postgresql etc.
-
-According found that in CTU mode the identifies 1.5-2 times more potential bugs.
-We will examine in detail the following
+In the CTU analysis mode we usually find 1.5-2 times more potential bugs.
+It is of paramount importance to see what are the quality of these reports.
+We will examine in detail the following:
 \begin{itemize}
-\item identify new findings that are true positive
-\item identify new findings that are false positive
-\item examine in detail disappeared findings. Have we lost true positive findings
+\item Identify new findings that are true positive.
+\item Identify new findings that are false positive
+\item Examine in detail disappeared findings. Have we lost true positive findings
 due to potential coverage loss, or we lost some false positives due 
-to more precise analysis.
-\item what is the distribution of of the path length of the new findings. Reports
-with too long (longer than ~15) steps is very hard to understand for a programmer.
+to more precise analysis?
+\item What is the distribution of the path length of the new findings? Reports
+with too long (longer than ~15) steps are very hard to understand for a programmer.
+\item Evaluate CTU with a new path exploration strategy: prioritize unexplored coverage first
+\item We evaluate how coverage changes in CTU mode using the different path exploration strategies.
+\cite{karpenkov}.
 \end{itemize}
 
-Our CTU patch is currently under review by the clang static analyzer community
-and very close to acceptance: \url{https://github.com/dkrupp/clang/wiki/TMUX-XTU-Analysis}
+Our CTU patch is currently under review by the Clang Static Analyzer community
+and very close to acceptance: \cite{patch}
 
-We maintain a more feature complete version at \url{https://github.com/Ericsson/clang}.
+We maintain a more feature complete version at \cite{ericsson-ctu}.
 
-
-%\keywords C++ programming language, static analysis, cross translation unit analysis, clang
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-\section{Credits}
-This work is based on earlier work of Aleksei Sidorin,\ Artem Dergachev,\ 
-et al.\@ See \url{http://lists.llvm.org/pipermail/cfe-dev/2015-October/045730.html}
-
 \begin{thebibliography}{9}
-\bibitem{ccelte} Cross-TU Analysis results on open source projects, \url{http://cc.elte.hu/}
-
+\bibitem{patch} Support for naive cross translational unit analysis \url{https://reviews.llvm.org/D30691}
+\bibitem{ericsson-ctu} Ericsson CTU Clang fork \url{https://github.com/Ericsson/clang}.
 \bibitem{artemctu} Artem Dergachev, Aleksei Sidorin: \emph{Cross TU Analysis for Clang 3.4}
   \url{http://lists.llvm.org/pipermail/cfe-dev/2015-October/045730.html}
-
-\bibitem{clang} clang: a C language family frontend for LLVM, \url{https://clang.llvm.org/}
-\bibitem{clangsa} Clang Static Analyzer, \url{https://clang-analyzer.llvm.org/}
-\bibitem{ericssonctu} Ericsson CTU open source repository, \url{https://github.com/Ericsson/clang}
-\bibitem{ffmpeg} FFmpeg project, \url{https://github.com/FFmpeg/FFmpeg}
-\bibitem{tmux} tmux project, \url{https://github.com/tmux/tmux}
-\bibitem{curl} curl project, \url{https://github.com/curl/curl}
-\bibitem{astimporter} \texttt{ASTImporter}, \url{http://clang.llvm.org/doxygen/classclang_1_1ASTImporter.html}
-\bibitem{ffmpegres} FFmpeg CTU Results, {\small \url{https://github.com/dkrupp/clang/wiki/FFMpeg-XTU-Analysis}}
-\bibitem{tmuxres} tmux CTU Results, \url{https://github.com/dkrupp/clang/wiki/TMUX-XTU-Analysis}
-\bibitem{curlres} curl CTU Results, \url{https://github.com/dkrupp/clang/wiki/Curl-XTU-Analysis}
-\bibitem{codechecker} CodeChecker, \url{https://github.com/Ericsson/codechecker}
+\bibitem{karpenkov} George Karpenkov, Exploration strategy prioritizing unexplored coverage first\url{https://reviews.llvm.org/D42775}
 \bibitem{eurollvm17} G\'abor Horva\'th, D\'aniel Krupp, Zolt\'an Gera, P\'eter Sz\'ecsi, Cross Translational Unit Analysis in Clang Static Analyzer: Prototype and Measurements, EuroLLVM2017
 \end{thebibliography}
 \end{document} 
