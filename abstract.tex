@@ -66,7 +66,7 @@
 \renewcommand\footnotetextcopyrightpermission[1]{} % removes footnote with conference information in first column
 \pagestyle{plain} % removes running headers 
 
-\title{Cross Translational Unit Analysis in Clang Static Analyzer: Qualitative Evaluation on C/C++ projects}
+\title{Cross Translation Unit Analysis in Clang Static Analyzer: Qualitative Evaluation on C/C++ projects}
 \author{G\'abor Horv\'ath}
 \email{xazax@caesar.elte.hu}
 
@@ -98,23 +98,21 @@
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Abstract}
-Today Clang Static Analyzer can perform inter-procedural analysis for 
-C, C++ and Objective C files by ''inlining'' 
-the callee into the callers' context. This means that that the full 
-calling context are passed when 
-analyzing the called function and
+Today Clang Static Analyzer can perform inter-procedural analysis by ''inlining'' 
+the callee into the caller's context. This means that the full 
+calling context is passed when analyzing the callee and
 then the assumptions about the returned value is passed back to the caller. 
 This works well for function calls within a
 translation unit (TU), but when the symbolic execution reaches a function that 
 is implemented in another TU, the analyzer engine 
 skips the analysis of the called function definition. In particular,
-assumptions about memory regions reachable from the parameters 
+assumptions about memory regions reachable from the arguments 
 (through pointers, references) get invalidated, 
 and the return value of the function will be unknown.
 Losing information this way may lead to false positive
 and false negative findings.
 
-The cross translation unit (CTU) feature allows the analysis of callees
+The Cross Translation Unit (CTU) feature allows the analysis of callees
 even if the definition of the function is external to the currently 
 analyzed TU. This allows detection of bugs in library functions stemming
 from incorrect usage (e.g. a library assumes that the user will free a memory 
@@ -122,7 +120,7 @@ block allocated by the library), and allows for more precise analysis
 of the caller in general if a TU external function is invoked
 (by not losing assumptions).
 
-Without CTU analysis we cannot find the divison by zero error in the next 
+Without CTU analysis we cannot find the divison by zero error in the following 
 code snippet. Moreover, we loose information about the value of variable
 \texttt{x}.
 
@@ -149,7 +147,7 @@ int f(int *x) {
 \end{minipage}
 
 
-We implemented the Cross Translation Unit analysis feature for Clang SA (5.0) 
+We implemented the Cross Translation Unit analysis feature for Clang SA  
 (based on the prototype by A. Sidorin, et al.~\cite{artemctu}) and evaluated 
 its performance on various open source projects. 
 
@@ -158,7 +156,7 @@ Since then we have improved the CTU prototype considerably:
 \begin{itemize}
 \item Improved the handling of C++ source code by submitting several patches  
 to the ASTImporter library.
-\item Addressed community review comments and introduced a new libCrossTU library into Clang.
+\item Addressed community review comments and introduced a new CrossTU library into Clang.
 \item Added CTU analysis feature to scan-build-py and\\ CodeChecker tools.
 \end{itemize}
 
@@ -171,15 +169,14 @@ It is of paramount importance to see what are the quality of these reports.
 We will examine in detail the following:
 \begin{itemize}
 \item Identify new findings that are true positive.
-\item Identify new findings that are false positive
-\item Examine in detail disappeared findings. Have we lost true positive findings
+\item Identify new findings that are false positive.
+\item Examine the disappeared findings in detail. Have we lost true positive findings
 due to potential coverage loss, or we lost some false positives due 
 to more precise analysis?
 \item What is the distribution of the path length of the new findings? Reports
 with too long (longer than ~15) steps are very hard to understand for a programmer.
-\item Evaluate CTU with a new path exploration strategy: prioritize unexplored coverage first
+\item Evaluate CTU with a new path exploration strategy: prioritize unexplored coverage first \cite{karpenkov}.
 \item We evaluate how coverage changes in CTU mode using the different path exploration strategies.
-\cite{karpenkov}.
 \end{itemize}
 
 Our CTU patch is currently under review by the Clang Static Analyzer community
